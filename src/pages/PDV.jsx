@@ -92,8 +92,6 @@ export default function PDV() {
     setSubmitting(true)
     try {
       const { data: sale, error } = await supabase.rpc('process_sale', {
-        p_company_id: company.id,
-        p_profile_id: profile.id,
         p_items: cart.map(l => ({ product_id: l.product.id, quantity: l.quantity })),
         p_discount: discountValue,
         p_payment_method: paymentMethod,
