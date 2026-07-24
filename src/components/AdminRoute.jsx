@@ -1,8 +1,9 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import MfaChallenge from '../pages/MfaChallenge'
 
 export default function AdminRoute({ children }) {
-  const { session, profile, loading } = useAuth()
+  const { session, profile, loading, mfaRequired } = useAuth()
 
   if (loading) {
     return (
@@ -13,6 +14,7 @@ export default function AdminRoute({ children }) {
   }
 
   if (!session) return <Navigate to="/login" replace />
+  if (mfaRequired) return <MfaChallenge />
   if (!profile?.is_platform_admin) return <Navigate to="/app" replace />
 
   return children

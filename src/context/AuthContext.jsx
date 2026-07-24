@@ -8,6 +8,7 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [company, setCompany] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [mfaRequired, setMfaRequired] = useState(false)
 
   const loadProfileAndCompany = useCallback(async (userId) => {
     const { data: profileData } = await supabase
@@ -28,25 +29,35 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  const checkMfaStatus = useCallback(async () => {
+    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    if (!error && data) {
+      setMfaRequired(data.nextLevel === 'aal2' && data.currentLevel !== data.nextLevel)
+    }
+  }, [])
+
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session)
-      if (session?.user) await loadProfileAndCompany(session.user.id)
+      if (session?.user) {
+        await Promise.all([loadProfileAndCompany(session.user.id), checkMfaStatus()])
+      }
       setLoading(false)
     })
 
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session)
       if (session?.user) {
-        await loadProfileAndCompany(session.user.id)
+        await Promise.all([loadProfileAndCompany(session.user.id), checkMfaStatus()])
       } else {
         setProfile(null)
         setCompany(null)
+        setMfaRequired(false)
       }
     })
 
     return () => listener.subscription.unsubscribe()
-  }, [loadProfileAndCompany])
+  }, [loadProfileAndCompany, checkMfaStatus])
 
   async function signIn(email, password) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -83,7 +94,32 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut()
   }
 
-  const value = { session, profile, company, loading, signIn, signUp, signOut, reload: () => session?.user && loadProfileAndCompany(session.user.id) }
+  async function verifyMfaCode(code) {
+    const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors()
+    if (factorsError) throw factorsError
+
+    const factor = factorsData?.totp?.[0]
+    if (!factor) throw new Error('Nenhum método de autenticação de dois fatores encontrado.')
+
+    const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: factor.id })
+    if (challengeError) throw challengeError
+
+    const { error: verifyError } = await supabase.auth.mfa.verify({
+      factorId: factor.id,
+      challengeId: challengeData.id,
+      code,
+    })
+    if (verifyError) throw verifyError
+
+    await checkMfaStatus()
+  }
+
+  const value = {
+    session, profile, company, loading, mfaRequired,
+    signIn, signUp, signOut, verifyMfaCode,
+    reload: () => session?.user && loadProfileAndCompany(session.user.id),
+    refreshMfaStatus: checkMfaStatus,
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

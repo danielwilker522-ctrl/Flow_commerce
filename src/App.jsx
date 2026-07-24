@@ -11,6 +11,7 @@ import CashRegister from './pages/CashRegister'
 import Products from './pages/Products'
 import Categories from './pages/Categories'
 import Suppliers from './pages/Suppliers'
+import Security from './pages/Security'
 import Admin from './pages/Admin'
 
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="produtos" element={<Products />} />
             <Route path="categorias" element={<Categories />} />
             <Route path="fornecedores" element={<Suppliers />} />
+            <Route path="seguranca" element={<Security />} />
           </Route>
 
           <Route

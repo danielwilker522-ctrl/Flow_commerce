@@ -8,6 +8,7 @@ const links = [
   { to: '/app/produtos', label: 'Produtos' },
   { to: '/app/categorias', label: 'Categorias' },
   { to: '/app/fornecedores', label: 'Fornecedores' },
+  { to: '/app/seguranca', label: 'Segurança' },
 ]
 
 export default function Layout() {
