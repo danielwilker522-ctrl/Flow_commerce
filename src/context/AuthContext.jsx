@@ -9,6 +9,7 @@ export function AuthProvider({ children }) {
   const [company, setCompany] = useState(null)
   const [loading, setLoading] = useState(true)
   const [mfaRequired, setMfaRequired] = useState(false)
+  const [mfaEnrolled, setMfaEnrolled] = useState(false)
 
   const loadProfileAndCompany = useCallback(async (userId) => {
     const { data: profileData } = await supabase
@@ -34,6 +35,8 @@ export function AuthProvider({ children }) {
     if (!error && data) {
       setMfaRequired(data.nextLevel === 'aal2' && data.currentLevel !== data.nextLevel)
     }
+    const { data: factorsData } = await supabase.auth.mfa.listFactors()
+    setMfaEnrolled(!!factorsData?.totp?.some(f => f.status === 'verified'))
   }, [])
 
   useEffect(() => {
@@ -115,7 +118,7 @@ export function AuthProvider({ children }) {
   }
 
   const value = {
-    session, profile, company, loading, mfaRequired,
+    session, profile, company, loading, mfaRequired, mfaEnrolled,
     signIn, signUp, signOut, verifyMfaCode,
     reload: () => session?.user && loadProfileAndCompany(session.user.id),
     refreshMfaStatus: checkMfaStatus,

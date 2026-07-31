@@ -125,6 +125,26 @@ export default function CashRegister() {
       const totalDesconto = salesList.reduce((s, r) => s + Number(r.discount || 0), 0)
       const totalTroco = salesList.reduce((s, r) => s + Number(r.change_amount || 0), 0)
 
+      const saleIds = salesList.map(s => s.id)
+      let productRows = []
+      if (saleIds.length > 0) {
+        const { data: items } = await supabase
+          .from('sales_itens')
+          .select('quantity, subtotal, product_id, products(name)')
+          .in('sales_id', saleIds)
+
+        const byProduct = {}
+        for (const it of items || []) {
+          const key = it.product_id
+          if (!byProduct[key]) {
+            byProduct[key] = { name: it.products?.name || 'Produto removido', quantity: 0, total: 0 }
+          }
+          byProduct[key].quantity += Number(it.quantity || 0)
+          byProduct[key].total += Number(it.subtotal || 0)
+        }
+        productRows = Object.values(byProduct).sort((a, b) => b.quantity - a.quantity)
+      }
+
       const byMethod = {}
       for (const s of salesList) {
         const key = s.payment_method || 'outro'
@@ -164,6 +184,17 @@ export default function CashRegister() {
         body: Object.entries(byMethod).map(([method, value]) => [paymentLabels[method] || method, formatKz(value)]),
         theme: 'grid',
         headStyles: { fillColor: [31, 77, 61] },
+      })
+
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 10,
+        head: [['Produto', 'Quantidade', 'Total vendido']],
+        body: productRows.length > 0
+          ? productRows.map(p => [p.name, String(p.quantity), formatKz(p.total)])
+          : [['Nenhum produto vendido neste turno', '', '']],
+        theme: 'grid',
+        headStyles: { fillColor: [31, 77, 61] },
+        styles: { fontSize: 9 },
       })
 
       autoTable(doc, {

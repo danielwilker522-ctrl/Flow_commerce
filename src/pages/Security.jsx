@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 
 export default function Security() {
-  const { refreshMfaStatus } = useAuth()
+  const { refreshMfaStatus, profile } = useAuth()
+  const [searchParams] = useSearchParams()
+  const isMandatory = searchParams.get('obrigatorio') === 'admin'
   const [factors, setFactors] = useState([])
   const [loading, setLoading] = useState(true)
   const [enrolling, setEnrolling] = useState(false)
@@ -88,6 +91,17 @@ export default function Security() {
         </div>
       </div>
 
+      {isMandatory && !hasActiveFactor && (
+        <div className="alert error" style={{ marginBottom: 20 }}>
+          Como administrador da plataforma, é obrigatório ativares a autenticação de dois fatores antes de acederes ao Painel Admin.
+        </div>
+      )}
+      {profile?.is_platform_admin && !hasActiveFactor && !isMandatory && (
+        <div className="alert error" style={{ marginBottom: 20 }}>
+          A tua conta tem acesso de administrador da plataforma — recomendamos vivamente que ativa a 2FA agora.
+        </div>
+      )}
+
       {error && !enrolling && <div className="alert error">{error}</div>}
       {success && <div className="alert success">{success}</div>}
 
@@ -139,7 +153,9 @@ export default function Security() {
                 <button className="btn-primary" disabled={submitting || code.length < 6}>
                   {submitting ? 'A confirmar...' : 'Ativar 2FA'}
                 </button>
-                <button type="button" className="btn-secondary" onClick={cancelEnroll}>Cancelar</button>
+                {!isMandatory && (
+                  <button type="button" className="btn-secondary" onClick={cancelEnroll}>Cancelar</button>
+                )}
               </div>
             </form>
           </>
