@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
   const { session, signIn, signUp } = useAuth()
   const navigate = useNavigate()
-  const [mode, setMode] = useState('login')
+  const [searchParams] = useSearchParams()
+  const inviteCode = searchParams.get('convite')
+  const [mode, setMode] = useState(inviteCode ? 'signup' : 'login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
@@ -27,7 +29,7 @@ export default function Login() {
       if (mode === 'login') {
         await signIn(email, password)
       } else {
-        const result = await signUp({ email, password, fullName, companyName })
+        const result = await signUp({ email, password, fullName, companyName, inviteCode })
         if (result.needsEmailConfirmation) {
           setInfo('Conta criada! Verifica o teu email para confirmar antes de entrares.')
           setMode('login')
@@ -45,7 +47,9 @@ export default function Login() {
       <div className="auth-card">
         <div className="auth-brand">Flow<span>Commerce</span></div>
         <p className="auth-subtitle">
-          {mode === 'login' ? 'Entra para gerir o teu negócio.' : 'Cria a tua conta e a tua empresa.'}
+          {inviteCode
+            ? 'Foste convidado para uma equipa — cria a tua conta para entrares.'
+            : mode === 'login' ? 'Entra para gerir o teu negócio.' : 'Cria a tua conta e a tua empresa.'}
         </p>
 
         {error && <div className="alert error">{error}</div>}
@@ -58,10 +62,12 @@ export default function Login() {
                 <label>Nome completo</label>
                 <input value={fullName} onChange={e => setFullName(e.target.value)} required />
               </div>
-              <div className="field">
-                <label>Nome da empresa</label>
-                <input value={companyName} onChange={e => setCompanyName(e.target.value)} required />
-              </div>
+              {!inviteCode && (
+                <div className="field">
+                  <label>Nome da empresa</label>
+                  <input value={companyName} onChange={e => setCompanyName(e.target.value)} required />
+                </div>
+              )}
             </>
           )}
           <div className="field">
@@ -77,13 +83,15 @@ export default function Login() {
           </button>
         </form>
 
-        <div className="auth-toggle">
-          {mode === 'login' ? (
-            <>Ainda não tens conta? <button onClick={() => { setMode('signup'); setError(''); setInfo('') }}>Criar conta</button></>
-          ) : (
-            <>Já tens conta? <button onClick={() => { setMode('login'); setError(''); setInfo('') }}>Entrar</button></>
-          )}
-        </div>
+        {!inviteCode && (
+          <div className="auth-toggle">
+            {mode === 'login' ? (
+              <>Ainda não tens conta? <button onClick={() => { setMode('signup'); setError(''); setInfo('') }}>Criar conta</button></>
+            ) : (
+              <>Já tens conta? <button onClick={() => { setMode('login'); setError(''); setInfo('') }}>Entrar</button></>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

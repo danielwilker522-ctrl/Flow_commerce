@@ -1,13 +1,24 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 
 export default function CompleteSetup() {
-  const { session, signOut, reload } = useAuth()
+  const { session, signOut, reload, hasPendingInvite, redeemPendingInvite } = useAuth()
   const [fullName, setFullName] = useState('')
   const [companyName, setCompanyName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [redeeming, setRedeeming] = useState(false)
+  const isInviteFlow = hasPendingInvite()
+
+  useEffect(() => {
+    if (isInviteFlow) {
+      setRedeeming(true)
+      redeemPendingInvite()
+        .catch(err => setError(err.message))
+        .finally(() => setRedeeming(false))
+    }
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -16,7 +27,6 @@ export default function CompleteSetup() {
     try {
       const userId = session.user.id
 
-      // Garante que não existe já uma empresa (idempotente, em caso de retry)
       const { data: existingCompany } = await supabase
         .from('companies')
         .select('id')
@@ -41,6 +51,25 @@ export default function CompleteSetup() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (isInviteFlow) {
+    return (
+      <div className="auth-shell">
+        <div className="auth-card" style={{ textAlign: 'center' }}>
+          <div className="auth-brand" style={{ justifyContent: 'center' }}>Flow<span>Commerce</span></div>
+          <p className="auth-subtitle" style={{ marginTop: 16 }}>
+            {redeeming ? 'A associar-te à equipa...' : error ? '' : 'Tudo pronto!'}
+          </p>
+          {error && (
+            <>
+              <div className="alert error">{error}</div>
+              <button className="btn-secondary" onClick={signOut}>Terminar sessão</button>
+            </>
+          )}
+        </div>
+      </div>
+    )
   }
 
   return (

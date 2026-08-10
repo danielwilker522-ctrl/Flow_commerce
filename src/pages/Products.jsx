@@ -24,6 +24,8 @@ export default function Products() {
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [packagePrice, setPackagePrice] = useState('')
+  const [packageUnits, setPackageUnits] = useState('')
 
   useEffect(() => { if (company?.id) loadAll() }, [company?.id])
 
@@ -65,6 +67,8 @@ export default function Products() {
   function openNew() {
     setEditing(null)
     setForm(emptyForm)
+    setPackagePrice('')
+    setPackageUnits('')
     setError('')
     setModalOpen(true)
   }
@@ -79,8 +83,18 @@ export default function Products() {
       category_id: item.category_id || '',
       supplier_id: item.supplier_id || '',
     })
+    setPackagePrice('')
+    setPackageUnits('')
     setError('')
     setModalOpen(true)
+  }
+
+  function applyPackageCalc() {
+    const price = Number(packagePrice)
+    const units = Number(packageUnits)
+    if (price > 0 && units > 0) {
+      setForm(f => ({ ...f, cost_price: (price / units).toFixed(2) }))
+    }
   }
 
   async function handleSubmit(e) {
@@ -241,9 +255,28 @@ export default function Products() {
                   <input value={form.barcode} onChange={e => setForm({ ...form, barcode: e.target.value })} />
                 </div>
               </div>
+              <div className="field" style={{ background: 'var(--bg)', border: '1px dashed var(--border)', borderRadius: 8, padding: 12 }}>
+                <label style={{ marginBottom: 8 }}>Calculadora: comprei uma embalagem, qual o custo por unidade?</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, alignItems: 'end' }}>
+                  <div>
+                    <label style={{ fontWeight: 400, fontSize: 12 }}>Preço pago pela embalagem</label>
+                    <input type="number" step="0.01" placeholder="ex: 1000" value={packagePrice} onChange={e => setPackagePrice(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ fontWeight: 400, fontSize: 12 }}>Unidades na embalagem</label>
+                    <input type="number" placeholder="ex: 10" value={packageUnits} onChange={e => setPackageUnits(e.target.value)} />
+                  </div>
+                  <button type="button" className="btn-secondary" onClick={applyPackageCalc}>Aplicar</button>
+                </div>
+                {Number(packagePrice) > 0 && Number(packageUnits) > 0 && (
+                  <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8 }}>
+                    Custo por unidade: <strong>{formatKz(Number(packagePrice) / Number(packageUnits))}</strong> — clica em "Aplicar" para preencher o campo de custo abaixo.
+                  </p>
+                )}
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div className="field">
-                  <label>Preço de custo</label>
+                  <label>Preço de custo (por unidade)</label>
                   <input type="number" step="0.01" value={form.cost_price} onChange={e => setForm({ ...form, cost_price: e.target.value })} />
                 </div>
                 <div className="field">
@@ -251,6 +284,12 @@ export default function Products() {
                   <input type="number" step="0.01" value={form.sale_price} onChange={e => setForm({ ...form, sale_price: e.target.value })} required />
                 </div>
               </div>
+              {Number(form.cost_price) > 0 && Number(form.sale_price) > 0 && (
+                <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: -8, marginBottom: 14 }}>
+                  Lucro estimado por unidade: <strong style={{ color: 'var(--primary)' }}>{formatKz(form.sale_price - form.cost_price)}</strong>
+                  {' '}({(((form.sale_price - form.cost_price) / form.sale_price) * 100).toFixed(1)}% de margem)
+                </p>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div className="field">
                   <label>Quantidade em stock</label>

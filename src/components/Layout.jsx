@@ -1,18 +1,24 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-const links = [
+const baseLinks = [
   { to: '/app', label: 'Dashboard', end: true },
   { to: '/app/pdv', label: 'Ponto de Venda' },
   { to: '/app/caixa', label: 'Caixa' },
   { to: '/app/produtos', label: 'Produtos' },
   { to: '/app/categorias', label: 'Categorias' },
   { to: '/app/fornecedores', label: 'Fornecedores' },
-  { to: '/app/seguranca', label: 'Segurança' },
+]
+
+const adminOnlyLinks = [
+  { to: '/app/lucro', label: 'Lucro & Stock' },
+  { to: '/app/equipa', label: 'Funcionários' },
 ]
 
 export default function Layout() {
   const { profile, company, signOut } = useAuth()
+  const isAdmin = profile?.role === 'admin'
+  const links = isAdmin ? [...baseLinks.slice(0, 4), ...adminOnlyLinks, ...baseLinks.slice(4), { to: '/app/seguranca', label: 'Segurança' }] : [...baseLinks, { to: '/app/seguranca', label: 'Segurança' }]
 
   return (
     <div className="app-shell">

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import CompleteSetup from '../pages/CompleteSetup'
 import PendingApproval from '../pages/PendingApproval'
 import MfaChallenge from '../pages/MfaChallenge'
+import AccountDeactivated from '../pages/AccountDeactivated'
 
 export default function ProtectedRoute({ children }) {
   const { session, profile, company, loading, mfaRequired } = useAuth()
@@ -20,6 +21,8 @@ export default function ProtectedRoute({ children }) {
   if (mfaRequired) return <MfaChallenge />
 
   if (!profile) return <CompleteSetup />
+
+  if (!profile.is_active) return <AccountDeactivated />
 
   if (!company?.is_approved) return <PendingApproval />
 

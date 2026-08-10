@@ -67,7 +67,7 @@ export function AuthProvider({ children }) {
     if (error) throw error
   }
 
-  async function signUp({ email, password, fullName, companyName }) {
+  async function signUp({ email, password, fullName, companyName, inviteCode }) {
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) throw error
 
@@ -76,21 +76,40 @@ export function AuthProvider({ children }) {
 
     // Sem sessão imediata = confirmação de email está ativa no projeto
     if (!data.session) {
+      if (inviteCode) {
+        localStorage.setItem('flowcommerce_pending_invite', JSON.stringify({ code: inviteCode, fullName }))
+      }
       return { needsEmailConfirmation: true }
     }
 
-    const { error: companyError } = await supabase
-      .from('companies')
-      .insert({ id: userId, name: companyName })
-    if (companyError) throw companyError
+    if (inviteCode) {
+      const { error: redeemError } = await supabase.rpc('redeem_invite', { p_code: inviteCode, p_full_name: fullName })
+      if (redeemError) throw redeemError
+    } else {
+      const { error: companyError } = await supabase
+        .from('companies')
+        .insert({ id: userId, name: companyName })
+      if (companyError) throw companyError
 
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({ id: userId, company_id: userId, full_name: fullName, role: 'admin' })
-    if (profileError) throw profileError
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({ id: userId, company_id: userId, full_name: fullName, role: 'admin' })
+      if (profileError) throw profileError
+    }
 
     await loadProfileAndCompany(userId)
     return { needsEmailConfirmation: false }
+  }
+
+  async function redeemPendingInvite(fallbackFullName) {
+    const pending = localStorage.getItem('flowcommerce_pending_invite')
+    if (!pending) return false
+    const { code, fullName } = JSON.parse(pending)
+    const { error } = await supabase.rpc('redeem_invite', { p_code: code, p_full_name: fullName || fallbackFullName })
+    localStorage.removeItem('flowcommerce_pending_invite')
+    if (error) throw error
+    if (session?.user) await loadProfileAndCompany(session.user.id)
+    return true
   }
 
   async function signOut() {
@@ -119,7 +138,8 @@ export function AuthProvider({ children }) {
 
   const value = {
     session, profile, company, loading, mfaRequired, mfaEnrolled,
-    signIn, signUp, signOut, verifyMfaCode,
+    signIn, signUp, signOut, verifyMfaCode, redeemPendingInvite,
+    hasPendingInvite: () => !!localStorage.getItem('flowcommerce_pending_invite'),
     reload: () => session?.user && loadProfileAndCompany(session.user.id),
     refreshMfaStatus: checkMfaStatus,
   }
