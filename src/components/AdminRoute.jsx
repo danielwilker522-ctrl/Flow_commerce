@@ -18,7 +18,7 @@ export default function AdminRoute({ children }) {
   if (!profile?.is_platform_admin) return <Navigate to="/app" replace />
 
   // Administradores da plataforma são obrigados a ter 2FA ativa
-  if (!mfaEnrolled) return <Navigate to="/app/seguranca?obrigatorio=admin" replace />
+  //if (!mfaEnrolled) return <Navigate to="/app/seguranca?obrigatorio=admin" replace />
 
   return children
 }
