@@ -70,7 +70,7 @@ export default function Login() {
           </div>
           <div className="field">
             <label>Palavra-passe</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={10} />
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={mode === 'signup' ? 10 : undefined} />
           </div>
           <button className="btn-primary" style={{ width: '100%' }} disabled={loading}>
             {loading ? 'A processar...' : mode === 'login' ? 'Entrar' : 'Criar conta'}
