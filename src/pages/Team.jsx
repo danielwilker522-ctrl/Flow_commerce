@@ -86,13 +86,18 @@ export default function Team() {
 
       {invites.length > 0 && (
         <div className="card" style={{ marginBottom: 24 }}>
-          <div style={{ padding: '16px 18px 0' }}><h3>Convites por usar</h3></div>
+          <div style={{ padding: '16px 18px 0' }}>
+            <h3>Convites por usar</h3>
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
+              Dá o código ao funcionário — ele escreve-o na tela de login, em "Tenho um código de convite". Não precisa de nenhum link.
+            </p>
+          </div>
           <table>
-            <thead><tr><th>Criado em</th><th>Expira em</th><th></th><th></th></tr></thead>
+            <thead><tr><th>Código</th><th>Expira em</th><th></th><th></th></tr></thead>
             <tbody>
               {invites.map(inv => (
                 <tr key={inv.id}>
-                  <td>{new Date(inv.created_at).toLocaleDateString('pt-AO')}</td>
+                  <td className="mono" style={{ fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>{inv.code}</td>
                   <td>{new Date(inv.expires_at).toLocaleDateString('pt-AO')}</td>
                   <td>
                     <button className="btn-secondary" onClick={() => copyInviteLink(inv)}>

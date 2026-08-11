@@ -6,8 +6,10 @@ export default function Login() {
   const { session, signIn, signUp } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const inviteCode = searchParams.get('convite')
-  const [mode, setMode] = useState(inviteCode ? 'signup' : 'login')
+  const linkInviteCode = searchParams.get('convite')
+  const [mode, setMode] = useState(linkInviteCode ? 'signup' : 'login')
+  const [showManualInvite, setShowManualInvite] = useState(false)
+  const [manualInviteCode, setManualInviteCode] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
@@ -15,6 +17,9 @@ export default function Login() {
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const inviteCode = linkInviteCode || (showManualInvite ? manualInviteCode.trim().toUpperCase() : null)
+  const isInviteFlow = !!linkInviteCode || showManualInvite
 
   useEffect(() => {
     if (session) navigate('/app', { replace: true })
@@ -29,7 +34,7 @@ export default function Login() {
       if (mode === 'login') {
         await signIn(email, password)
       } else {
-        const result = await signUp({ email, password, fullName, companyName, inviteCode })
+        const result = await signUp({ email, password, fullName, companyName, inviteCode: inviteCode || undefined })
         if (result.needsEmailConfirmation) {
           setInfo('Conta criada! Verifica o teu email para confirmar antes de entrares.')
           setMode('login')
@@ -47,7 +52,7 @@ export default function Login() {
       <div className="auth-card">
         <div className="auth-brand">Flow<span>Commerce</span></div>
         <p className="auth-subtitle">
-          {inviteCode
+          {linkInviteCode
             ? 'Foste convidado para uma equipa — cria a tua conta para entrares.'
             : mode === 'login' ? 'Entra para gerir o teu negócio.' : 'Cria a tua conta e a tua empresa.'}
         </p>
@@ -62,10 +67,45 @@ export default function Login() {
                 <label>Nome completo</label>
                 <input value={fullName} onChange={e => setFullName(e.target.value)} required />
               </div>
-              {!inviteCode && (
+
+              {!linkInviteCode && !showManualInvite && (
                 <div className="field">
                   <label>Nome da empresa</label>
                   <input value={companyName} onChange={e => setCompanyName(e.target.value)} required />
+                </div>
+              )}
+
+              {!linkInviteCode && (
+                <div className="field">
+                  {!showManualInvite ? (
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      style={{ padding: 0, color: 'var(--primary)', fontWeight: 600 }}
+                      onClick={() => setShowManualInvite(true)}
+                    >
+                      Tenho um código de convite de uma loja
+                    </button>
+                  ) : (
+                    <>
+                      <label>Código de convite</label>
+                      <input
+                        value={manualInviteCode}
+                        onChange={e => setManualInviteCode(e.target.value)}
+                        placeholder="ex: A1B2C3D4"
+                        style={{ textTransform: 'uppercase', letterSpacing: 1 }}
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        style={{ padding: '6px 0 0', color: 'var(--muted)', fontSize: 12.5 }}
+                        onClick={() => { setShowManualInvite(false); setManualInviteCode('') }}
+                      >
+                        Não tenho, quero criar uma loja nova
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </>
@@ -83,7 +123,7 @@ export default function Login() {
           </button>
         </form>
 
-        {!inviteCode && (
+        {!linkInviteCode && (
           <div className="auth-toggle">
             {mode === 'login' ? (
               <>Ainda não tens conta? <button onClick={() => { setMode('signup'); setError(''); setInfo('') }}>Criar conta</button></>
