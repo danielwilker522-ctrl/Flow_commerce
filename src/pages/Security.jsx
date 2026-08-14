@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 export default function Security() {
   const { refreshMfaStatus, profile } = useAuth()
   const [searchParams] = useSearchParams()
-  const isMandatory = searchParams.get('obrigatorio') === 'admin'
+  const isMandatory = false
   const [factors, setFactors] = useState([])
   const [loading, setLoading] = useState(true)
   const [enrolling, setEnrolling] = useState(false)
