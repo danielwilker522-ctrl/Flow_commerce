@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 
@@ -98,7 +99,14 @@ export default function Dashboard() {
         </div>
 
         <div className="card">
-          <div style={{ padding: '16px 18px 0' }}><h3>Stock baixo</h3></div>
+          <div style={{ padding: '16px 18px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3>Stock baixo</h3>
+            {stats.lowStock > 0 && (
+              <Link to="/app/produtos?stock=baixo" style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>
+                Ver todos ({stats.lowStock}) →
+              </Link>
+            )}
+          </div>
           {lowStockProducts.length === 0 ? (
             <div className="empty-state">
               <h3>Tudo em ordem</h3>

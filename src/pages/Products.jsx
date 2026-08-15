@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 
@@ -19,6 +20,8 @@ export default function Products() {
   const [suppliers, setSuppliers] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [lowStockOnly, setLowStockOnly] = useState(searchParams.get('stock') === 'baixo')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(emptyForm)
@@ -158,10 +161,18 @@ export default function Products() {
     loadAll()
   }
 
-  const filtered = items.filter(p =>
-    p.name?.toLowerCase().includes(search.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = items
+    .filter(p =>
+      p.name?.toLowerCase().includes(search.toLowerCase()) ||
+      p.sku?.toLowerCase().includes(search.toLowerCase())
+    )
+    .filter(p => !lowStockOnly || Number(p.stock_quantity) <= Number(p.minimum_stock ?? 0))
+
+  function toggleLowStockOnly() {
+    const next = !lowStockOnly
+    setLowStockOnly(next)
+    setSearchParams(next ? { stock: 'baixo' } : {})
+  }
 
   return (
     <div>
@@ -175,6 +186,9 @@ export default function Products() {
 
       <div className="toolbar">
         <input placeholder="Pesquisar por nome ou SKU..." value={search} onChange={e => setSearch(e.target.value)} style={{ maxWidth: 320 }} />
+        <button className={`category-pill ${lowStockOnly ? 'active' : ''}`} onClick={toggleLowStockOnly} style={{ flexShrink: 0 }}>
+          Só stock baixo
+        </button>
       </div>
 
       <div className="card">

@@ -1,22 +1,24 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import MfaChallenge from '../pages/MfaChallenge'
 
 export default function AdminRoute({ children }) {
-  const { profile, loading } = useAuth()
+  const { session, profile, loading, mfaRequired, mfaEnrolled } = useAuth()
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#687268' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#6B7268' }}>
         A carregar...
       </div>
     )
   }
 
-  // Permite o acesso se o usuário for administrador da plataforma, ignorando o 2FA
-  if (profile?.is_platform_admin) {
-    return children
-  }
+  if (!session) return <Navigate to="/login" replace />
+  if (mfaRequired) return <MfaChallenge />
+  if (!profile?.is_platform_admin) return <Navigate to="/app" replace />
 
-  // Caso contrário, redireciona para a rota padrão
-  return <Navigate to="/app" replace />
+  // Administradores da plataforma são obrigados a ter 2FA ativa
+  if (!mfaEnrolled) return <Navigate to="/app/seguranca?obrigatorio=admin" replace />
+
+  return children
 }
