@@ -15,6 +15,7 @@ function formatKz(value) {
 
 export default function Products() {
   const { company, profile } = useAuth()
+  const isAdmin = profile?.role === 'admin'
   const [items, setItems] = useState([])
   const [categories, setCategories] = useState([])
   const [suppliers, setSuppliers] = useState([])
@@ -181,7 +182,7 @@ export default function Products() {
           <h1>Produtos</h1>
           <p>Cadastro e controlo de stock dos teus produtos.</p>
         </div>
-        <button className="btn-primary" onClick={openNew}>+ Novo produto</button>
+        {isAdmin && <button className="btn-primary" onClick={openNew}>+ Novo produto</button>}
       </div>
 
       <div className="toolbar">
@@ -197,12 +198,12 @@ export default function Products() {
         ) : filtered.length === 0 ? (
           <div className="empty-state">
             <h3>Nenhum produto encontrado</h3>
-            <p>Cadastra o primeiro produto para começares a vender.</p>
+            <p>{isAdmin ? 'Cadastra o primeiro produto para começares a vender.' : 'Ainda não há produtos cadastrados nesta loja.'}</p>
           </div>
         ) : (
           <table>
             <thead>
-              <tr><th>Produto</th><th>Categoria</th><th>Preço</th><th>Stock</th><th></th></tr>
+              <tr><th>Produto</th><th>Categoria</th><th>Preço</th><th>Stock</th>{isAdmin && <th></th>}</tr>
             </thead>
             <tbody>
               {filtered.map(p => {
@@ -225,10 +226,12 @@ export default function Products() {
                     <td>{p.categories?.name || '—'}</td>
                     <td className="mono">{formatKz(p.sale_price)}</td>
                     <td><span className={`badge ${low ? 'low' : 'ok'}`}>{p.stock_quantity}</span></td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button className="btn-ghost" onClick={() => openEdit(p)}>Editar</button>
-                      <button className="btn-danger" onClick={() => handleDelete(p.id)}>Eliminar</button>
-                    </td>
+                    {isAdmin && (
+                      <td style={{ textAlign: 'right' }}>
+                        <button className="btn-ghost" onClick={() => openEdit(p)}>Editar</button>
+                        <button className="btn-danger" onClick={() => handleDelete(p.id)}>Eliminar</button>
+                      </td>
+                    )}
                   </tr>
                 )
               })}
