@@ -2,33 +2,57 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { supabase } from '../lib/supabaseClient'
 
 const AuthContext = createContext(null)
+const ACTIVE_COMPANY_KEY = 'flowcommerce_active_company'
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [company, setCompany] = useState(null)
+  const [accessibleCompanies, setAccessibleCompanies] = useState([])
   const [loading, setLoading] = useState(true)
   const [mfaRequired, setMfaRequired] = useState(false)
   const [mfaEnrolled, setMfaEnrolled] = useState(false)
 
+  const loadCompanyById = useCallback(async (companyId) => {
+    const { data, error } = await supabase.from('companies').select('*').eq('id', companyId).maybeSingle()
+    if (!error && data) {
+      setCompany(data)
+      localStorage.setItem(ACTIVE_COMPANY_KEY, companyId)
+    }
+  }, [])
+
   const loadProfileAndCompany = useCallback(async (userId) => {
-    const { data: profileData } = await supabase
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .maybeSingle()
 
-    setProfile(profileData || null)
-
-    if (profileData?.company_id) {
-      const { data: companyData } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('id', profileData.company_id)
-        .maybeSingle()
-      setCompany(companyData || null)
+    if (profileError) {
+      // Falha temporária (ex: token a renovar depois de o browser estar
+      // muito tempo inativo) — não apagamos o que já tínhamos carregado,
+      // para não mostrar por engano o ecrã de "completar registo".
+      console.warn('Falha temporária ao carregar perfil:', profileError.message)
+      return
     }
-  }, [])
+
+    setProfile(profileData || null)
+    if (!profileData?.company_id) return
+
+    const { data: companiesList } = await supabase.rpc('get_my_accessible_companies')
+    const accessible = companiesList || [{ id: profileData.company_id, name: null }]
+    setAccessibleCompanies(accessible)
+
+    const savedActiveId = localStorage.getItem(ACTIVE_COMPANY_KEY)
+    const stillAccessible = savedActiveId && accessible.some(c => c.id === savedActiveId)
+    const targetCompanyId = stillAccessible ? savedActiveId : profileData.company_id
+
+    await loadCompanyById(targetCompanyId)
+  }, [loadCompanyById])
+
+  async function switchCompany(companyId) {
+    await loadCompanyById(companyId)
+  }
 
   const checkMfaStatus = useCallback(async () => {
     const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
@@ -55,11 +79,32 @@ export function AuthProvider({ children }) {
       } else {
         setProfile(null)
         setCompany(null)
+        setAccessibleCompanies([])
         setMfaRequired(false)
+        localStorage.removeItem(ACTIVE_COMPANY_KEY)
       }
     })
 
     return () => listener.subscription.unsubscribe()
+  }, [loadProfileAndCompany, checkMfaStatus])
+
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState === 'visible') {
+        // A aba voltou a ficar ativa depois de estar em segundo plano —
+        // confirma a sessão junto do Supabase (renova o token se precisar)
+        // antes de qualquer outra ação, para evitar o bug de "perfil em falta".
+        supabase.auth.getSession().then(({ data: { session: freshSession } }) => {
+          setSession(freshSession)
+          if (freshSession?.user) {
+            loadProfileAndCompany(freshSession.user.id)
+            checkMfaStatus()
+          }
+        })
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [loadProfileAndCompany, checkMfaStatus])
 
   async function signIn(email, password) {
@@ -113,6 +158,7 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
+    localStorage.removeItem(ACTIVE_COMPANY_KEY)
     await supabase.auth.signOut()
   }
 
@@ -137,8 +183,8 @@ export function AuthProvider({ children }) {
   }
 
   const value = {
-    session, profile, company, loading, mfaRequired, mfaEnrolled,
-    signIn, signUp, signOut, verifyMfaCode, redeemPendingInvite,
+    session, profile, company, accessibleCompanies, loading, mfaRequired, mfaEnrolled,
+    signIn, signUp, signOut, verifyMfaCode, redeemPendingInvite, switchCompany,
     hasPendingInvite: () => !!localStorage.getItem('flowcommerce_pending_invite'),
     reload: () => session?.user && loadProfileAndCompany(session.user.id),
     refreshMfaStatus: checkMfaStatus,
