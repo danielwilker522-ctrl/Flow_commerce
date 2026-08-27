@@ -8,10 +8,11 @@ function formatKz(value) {
 }
 
 export default function Dashboard() {
-  const { company } = useAuth()
+  const { company, profile } = useAuth()
   const [stats, setStats] = useState({ revenue: 0, count: 0, lowStock: 0 })
   const [lowStockProducts, setLowStockProducts] = useState([])
   const [recentSales, setRecentSales] = useState([])
+  const [loginEvents, setLoginEvents] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -45,6 +46,17 @@ export default function Dashboard() {
     setStats({ revenue, count: validSales.length, lowStock: lowStock.length })
     setLowStockProducts(lowStock.slice(0, 6))
     setRecentSales(validSales.slice(0, 6))
+
+    if (profile?.role === 'admin') {
+      const { data: logins } = await supabase
+        .from('login_events')
+        .select('*')
+        .eq('company_id', company.id)
+        .order('created_at', { ascending: false })
+        .limit(8)
+      setLoginEvents(logins || [])
+    }
+
     setLoading(false)
   }
 
@@ -129,6 +141,28 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {profile?.role === 'admin' && (
+        <div className="card" style={{ marginTop: 20 }}>
+          <div style={{ padding: '16px 18px 0' }}><h3>🔔 Acessos recentes da equipa</h3></div>
+          {loginEvents.length === 0 ? (
+            <div className="empty-state"><p>Ainda sem registos de acesso.</p></div>
+          ) : (
+            <table>
+              <thead><tr><th>Funcionário</th><th>Função</th><th>Quando</th></tr></thead>
+              <tbody>
+                {loginEvents.map(ev => (
+                  <tr key={ev.id}>
+                    <td style={{ fontWeight: 600 }}>{ev.full_name || '—'}</td>
+                    <td style={{ textTransform: 'capitalize' }}>{ev.role}</td>
+                    <td style={{ fontSize: 12.5, color: 'var(--muted)' }}>{new Date(ev.created_at).toLocaleString('pt-AO')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
     </div>
   )
 }

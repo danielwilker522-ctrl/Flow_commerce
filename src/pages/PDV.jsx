@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 
@@ -20,7 +22,9 @@ export default function PDV() {
   const [checking, setChecking] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [lastReceipt, setLastReceipt] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [topSellers, setTopSellers] = useState([])
 
   useEffect(() => { if (company?.id) init() }, [company?.id])
 
@@ -35,6 +39,30 @@ export default function PDV() {
     setCategories(cats || [])
     setHasOpenRegister(!!openRegister)
     setChecking(false)
+    loadTopSellers(prods || [])
+  }
+
+  async function loadTopSellers(prods) {
+    const productIds = prods.map(p => p.id)
+    if (productIds.length === 0) { setTopSellers([]); return }
+
+    const { data: items } = await supabase
+      .from('sales_itens')
+      .select('product_id, quantity')
+      .in('product_id', productIds)
+
+    const soldByProduct = {}
+    for (const it of items || []) {
+      soldByProduct[it.product_id] = (soldByProduct[it.product_id] || 0) + Number(it.quantity || 0)
+    }
+
+    const ranked = prods
+      .map(p => ({ ...p, soldQty: soldByProduct[p.id] || 0 }))
+      .filter(p => p.soldQty > 0 && p.stock_quantity > 0)
+      .sort((a, b) => b.soldQty - a.soldQty)
+      .slice(0, 8)
+
+    setTopSellers(ranked)
   }
 
   const filtered = useMemo(() => (
@@ -81,6 +109,55 @@ export default function PDV() {
     setPaymentMethod('dinheiro')
   }
 
+  const paymentLabels = { dinheiro: 'Dinheiro', multicaixa: 'Multicaixa', transferencia: 'Transferência', cartao: 'Cartão' }
+
+  function downloadReceipt(receipt) {
+    const { sale, items, cashier } = receipt
+    const doc = new jsPDF({ format: [80, 200], unit: 'mm' })
+    let y = 10
+
+    doc.setFontSize(11)
+    doc.text(company?.name || 'FlowCommerce', 40, y, { align: 'center' })
+    y += 6
+    doc.setFontSize(8)
+    doc.text('Recibo de venda (sem valor fiscal)', 40, y, { align: 'center' })
+    y += 4
+    doc.text(new Date(sale.created_at || Date.now()).toLocaleString('pt-AO'), 40, y, { align: 'center' })
+    y += 4
+    doc.text(`Operador: ${cashier}`, 40, y, { align: 'center' })
+    y += 4
+    doc.text(`Venda #${sale.id.slice(0, 8)}`, 40, y, { align: 'center' })
+    y += 6
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: 4, right: 4 },
+      head: [['Produto', 'Qtd', 'Total']],
+      body: items.map(it => [it.name, String(it.quantity), formatKz(it.unitPrice * it.quantity)]),
+      styles: { fontSize: 7, cellPadding: 1.5 },
+      headStyles: { fillColor: [31, 77, 61] },
+      theme: 'grid',
+    })
+
+    let finalY = doc.lastAutoTable.finalY + 4
+    doc.setFontSize(8)
+    doc.text(`Subtotal: ${formatKz(sale.subtotal)}`, 4, finalY); finalY += 4
+    doc.text(`Desconto: ${formatKz(sale.discount)}`, 4, finalY); finalY += 4
+    doc.setFontSize(10)
+    doc.text(`Total: ${formatKz(sale.total)}`, 4, finalY); finalY += 5
+    doc.setFontSize(8)
+    doc.text(`Método: ${paymentLabels[sale.payment_method] || sale.payment_method}`, 4, finalY); finalY += 4
+    if (sale.payment_method === 'dinheiro') {
+      doc.text(`Recebido: ${formatKz(sale.amount_received)}`, 4, finalY); finalY += 4
+      doc.text(`Troco: ${formatKz(sale.change_amount)}`, 4, finalY); finalY += 4
+    }
+    finalY += 4
+    doc.setFontSize(7)
+    doc.text('Obrigado pela preferência!', 40, finalY, { align: 'center' })
+
+    doc.save(`recibo-${sale.id.slice(0, 8)}.pdf`)
+  }
+
   async function finalizeSale() {
     setError('')
     setSuccess('')
@@ -101,6 +178,11 @@ export default function PDV() {
       if (error) throw error
 
       setSuccess(`Venda registada com sucesso! Total: ${formatKz(sale.total)}`)
+      setLastReceipt({
+        sale,
+        items: cart.map(l => ({ name: l.product.name, quantity: l.quantity, unitPrice: l.product.sale_price })),
+        cashier: profile?.full_name || '—',
+      })
       resetSale()
       init()
     } catch (err) {
@@ -131,10 +213,40 @@ export default function PDV() {
       </div>
 
       {error && <div className="alert error">{error}</div>}
-      {success && <div className="alert success">{success}</div>}
+      {success && (
+        <div className="alert success" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <span>{success}</span>
+          {lastReceipt && (
+            <button className="btn-secondary" style={{ flexShrink: 0 }} onClick={() => downloadReceipt(lastReceipt)}>
+              🧾 Descarregar recibo
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="pdv-layout">
         <div className="pdv-products">
+          {topSellers.length > 0 && selectedCategory === 'all' && !search && (
+            <div style={{ marginBottom: 18 }}>
+              <h3 style={{ fontSize: 14, marginBottom: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                ⭐ Mais vendidos
+              </h3>
+              <div className="product-grid">
+                {topSellers.map(p => (
+                  <button key={p.id} className="product-tile" onClick={() => addToCart(p)} disabled={p.stock_quantity <= 0}>
+                    {p.image_url ? (
+                      <img src={p.image_url} alt={p.name} className="product-tile-img" />
+                    ) : (
+                      <div className="product-tile-img placeholder" />
+                    )}
+                    <div className="name">{p.name}</div>
+                    <div className="price">{formatKz(p.sale_price)}</div>
+                    <div className="stock">{p.soldQty} vendidos</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <input
             placeholder="Pesquisar por nome, SKU ou código de barras..."
             value={search}

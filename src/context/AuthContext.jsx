@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
     }
 
     setProfile(profileData || null)
-    if (!profileData?.company_id) return
+    if (!profileData?.company_id) return profileData
 
     const { data: companiesList } = await supabase.rpc('get_my_accessible_companies')
     const accessible = companiesList || [{ id: profileData.company_id, name: null }]
@@ -48,6 +48,7 @@ export function AuthProvider({ children }) {
     const targetCompanyId = stillAccessible ? savedActiveId : profileData.company_id
 
     await loadCompanyById(targetCompanyId)
+    return profileData
   }, [loadCompanyById])
 
   async function switchCompany(companyId) {
@@ -72,10 +73,18 @@ export function AuthProvider({ children }) {
       setLoading(false)
     })
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session)
       if (session?.user) {
-        await Promise.all([loadProfileAndCompany(session.user.id), checkMfaStatus()])
+        const [profileData] = await Promise.all([loadProfileAndCompany(session.user.id), checkMfaStatus()])
+        if (event === 'SIGNED_IN' && profileData?.company_id) {
+          supabase.from('login_events').insert({
+            company_id: profileData.company_id,
+            profile_id: session.user.id,
+            full_name: profileData.full_name,
+            role: profileData.role,
+          }).then(() => {})
+        }
       } else {
         setProfile(null)
         setCompany(null)

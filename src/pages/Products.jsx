@@ -26,6 +26,10 @@ export default function Products() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(emptyForm)
+  const [entryProduct, setEntryProduct] = useState(null)
+  const [entryQty, setEntryQty] = useState('')
+  const [entryNote, setEntryNote] = useState('')
+  const [entrySubmitting, setEntrySubmitting] = useState(false)
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
   const [packagePrice, setPackagePrice] = useState('')
@@ -156,6 +160,37 @@ export default function Products() {
     }
   }
 
+  async function handleStockEntry(e) {
+    e.preventDefault()
+    if (!entryProduct) return
+    const qty = Number(entryQty)
+    if (!qty || qty <= 0) return
+    setEntrySubmitting(true)
+    try {
+      const before = Number(entryProduct.stock_quantity || 0)
+      const after = before + qty
+
+      const { error } = await supabase.from('products').update({ stock_quantity: after }).eq('id', entryProduct.id)
+      if (error) throw error
+
+      await supabase.from('stock_movements').insert({
+        company_id: company.id, product_id: entryProduct.id, profile_id: profile.id,
+        movement_type: 'entrada', quantity: qty,
+        stock_before: before, stock_after: after,
+        notes: entryNote || 'Entrada manual de stock',
+      })
+
+      setEntryProduct(null)
+      setEntryQty('')
+      setEntryNote('')
+      loadAll()
+    } catch (err) {
+      alert('Erro ao registar entrada: ' + err.message)
+    } finally {
+      setEntrySubmitting(false)
+    }
+  }
+
   async function handleDelete(id) {
     if (!confirm('Eliminar este produto?')) return
     await supabase.from('products').delete().eq('id', id)
@@ -228,6 +263,7 @@ export default function Products() {
                     <td><span className={`badge ${low ? 'low' : 'ok'}`}>{p.stock_quantity}</span></td>
                     {isAdmin && (
                       <td style={{ textAlign: 'right' }}>
+                        <button className="btn-ghost" onClick={() => { setEntryProduct(p); setEntryQty(''); setEntryNote('') }}>+ Entrada</button>
                         <button className="btn-ghost" onClick={() => openEdit(p)}>Editar</button>
                         <button className="btn-danger" onClick={() => handleDelete(p.id)}>Eliminar</button>
                       </td>
@@ -334,6 +370,38 @@ export default function Products() {
               <div className="modal-actions">
                 <button type="button" className="btn-secondary" onClick={() => setModalOpen(false)}>Cancelar</button>
                 <button className="btn-primary">Guardar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {entryProduct && (
+        <div className="modal-overlay" onClick={() => setEntryProduct(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h2>Registar entrada de stock</h2>
+            <p style={{ color: 'var(--muted)', fontSize: 13.5, marginTop: -10, marginBottom: 16 }}>
+              {entryProduct.name} — stock atual: <strong>{entryProduct.stock_quantity}</strong>
+            </p>
+            <form onSubmit={handleStockEntry}>
+              <div className="field">
+                <label>Quantidade recebida</label>
+                <input type="number" min="1" value={entryQty} onChange={e => setEntryQty(e.target.value)} autoFocus required />
+              </div>
+              <div className="field">
+                <label>Nota (opcional)</label>
+                <input value={entryNote} onChange={e => setEntryNote(e.target.value)} placeholder="ex: entrega do fornecedor X" />
+              </div>
+              {Number(entryQty) > 0 && (
+                <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: -8, marginBottom: 14 }}>
+                  Novo stock: <strong style={{ color: 'var(--primary)' }}>{Number(entryProduct.stock_quantity) + Number(entryQty)}</strong>
+                </p>
+              )}
+              <div className="modal-actions">
+                <button type="button" className="btn-secondary" onClick={() => setEntryProduct(null)}>Cancelar</button>
+                <button className="btn-primary" disabled={entrySubmitting}>
+                  {entrySubmitting ? 'A registar...' : 'Registar entrada'}
+                </button>
               </div>
             </form>
           </div>
