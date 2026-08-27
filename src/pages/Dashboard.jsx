@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
+import { downloadReceipt } from '../lib/receipt'
 
 function formatKz(value) {
   return new Intl.NumberFormat('pt-AO', { minimumFractionDigits: 2 }).format(value || 0) + ' Kz'
@@ -14,6 +15,7 @@ export default function Dashboard() {
   const [recentSales, setRecentSales] = useState([])
   const [loginEvents, setLoginEvents] = useState([])
   const [loading, setLoading] = useState(true)
+  const [receiptLoadingId, setReceiptLoadingId] = useState(null)
 
   useEffect(() => {
     if (!company?.id) return
@@ -27,7 +29,7 @@ export default function Dashboard() {
 
     const { data: sales } = await supabase
       .from('sales')
-      .select('id, total, created_at, payment_method, status')
+      .select('id, total, subtotal, discount, amount_received, change_amount, created_at, payment_method, status, profile_id')
       .eq('company_id', company.id)
       .gte('created_at', startOfDay.toISOString())
       .order('created_at', { ascending: false })
@@ -58,6 +60,27 @@ export default function Dashboard() {
     }
 
     setLoading(false)
+  }
+
+  async function handleDownloadReceipt(sale) {
+    setReceiptLoadingId(sale.id)
+    try {
+      const [{ data: items }, { data: cashierProfile }] = await Promise.all([
+        supabase.from('sales_itens').select('quantity, unit_price, products(name)').eq('sales_id', sale.id),
+        sale.profile_id ? supabase.from('profiles').select('full_name').eq('id', sale.profile_id).maybeSingle() : Promise.resolve({ data: null }),
+      ])
+
+      downloadReceipt({
+        companyName: company?.name,
+        sale,
+        items: (items || []).map(it => ({ name: it.products?.name || 'Produto removido', quantity: it.quantity, unitPrice: it.unit_price })),
+        cashier: cashierProfile?.full_name || '—',
+      })
+    } catch (err) {
+      alert('Erro ao gerar recibo: ' + err.message)
+    } finally {
+      setReceiptLoadingId(null)
+    }
   }
 
   return (
@@ -95,7 +118,7 @@ export default function Dashboard() {
           ) : (
             <table>
               <thead>
-                <tr><th>Hora</th><th>Método</th><th>Total</th></tr>
+                <tr><th>Hora</th><th>Método</th><th>Total</th><th></th></tr>
               </thead>
               <tbody>
                 {recentSales.map(s => (
@@ -103,6 +126,11 @@ export default function Dashboard() {
                     <td>{new Date(s.created_at).toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' })}</td>
                     <td style={{ textTransform: 'capitalize' }}>{s.payment_method || '—'}</td>
                     <td className="mono">{formatKz(s.total)}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button className="btn-ghost" onClick={() => handleDownloadReceipt(s)} disabled={receiptLoadingId === s.id}>
+                        {receiptLoadingId === s.id ? '...' : '🧾'}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
