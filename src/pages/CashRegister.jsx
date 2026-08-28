@@ -67,11 +67,16 @@ export default function CashRegister() {
   async function handleOpen(e) {
     e.preventDefault()
     setError('')
+    const value = Number(openingAmount || 0)
+    const confirmed = window.confirm(
+      `Confirmas o valor de abertura?\n\n${formatKz(value)}\n\nSe este valor não corresponder ao que contaste na gaveta, cancela e corrige — repara sobretudo se usaste um ponto (.) para separar milhares, o sistema lê o ponto como vírgula decimal.`
+    )
+    if (!confirmed) return
     try {
       const { error } = await supabase.from('cash_register').insert({
         company_id: company.id,
         profile_id: profile.id,
-        opening_amount: Number(openingAmount || 0),
+        opening_amount: value,
         status: 'aberto',
         opened_at: new Date().toISOString(),
       })
@@ -86,9 +91,13 @@ export default function CashRegister() {
   async function handleClose(e) {
     e.preventDefault()
     setError('')
+    const closing = Number(closingAmount || 0)
+    const confirmed = window.confirm(
+      `Confirmas o valor contado no fecho?\n\n${formatKz(closing)}\n\nSe este valor não corresponder ao que contaste na gaveta, cancela e corrige — repara sobretudo se usaste um ponto (.) para separar milhares, o sistema lê o ponto como vírgula decimal.`
+    )
+    if (!confirmed) return
     try {
       const expected = Number(current.opening_amount || 0) + cashSalesTotal
-      const closing = Number(closingAmount || 0)
       const { error } = await supabase.from('cash_register').update({
         closing_amount: closing,
         expected_amount: expected,
@@ -238,7 +247,12 @@ export default function CashRegister() {
           <form onSubmit={handleOpen}>
             <div className="field">
               <label>Valor de abertura</label>
-              <input type="number" step="0.01" value={openingAmount} onChange={e => setOpeningAmount(e.target.value)} required />
+              <input type="number" value={openingAmount} onChange={e => setOpeningAmount(e.target.value)} placeholder="ex: 30000 (sem pontos nem vírgulas)" required />
+              {openingAmount !== '' && (
+                <p style={{ fontSize: 13, marginTop: 6, color: 'var(--primary)', fontWeight: 600 }}>
+                  = {formatKz(Number(openingAmount))}
+                </p>
+              )}
             </div>
             <button className="btn-primary" style={{ width: '100%' }}>Abrir caixa</button>
           </form>
@@ -262,7 +276,12 @@ export default function CashRegister() {
           <form onSubmit={handleClose}>
             <div className="field">
               <label>Valor contado no fecho</label>
-              <input type="number" step="0.01" value={closingAmount} onChange={e => setClosingAmount(e.target.value)} required />
+              <input type="number" value={closingAmount} onChange={e => setClosingAmount(e.target.value)} placeholder="ex: 176875 (sem pontos nem vírgulas)" required />
+              {closingAmount !== '' && (
+                <p style={{ fontSize: 13, marginTop: 6, color: 'var(--primary)', fontWeight: 600 }}>
+                  = {formatKz(Number(closingAmount))}
+                </p>
+              )}
             </div>
             <button className="btn-primary" style={{ width: '100%' }}>Fechar caixa</button>
           </form>

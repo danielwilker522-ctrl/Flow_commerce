@@ -275,7 +275,7 @@ export default function PDV() {
           {paymentMethod === 'dinheiro' && (
             <div className="field">
               <label>Valor recebido</label>
-              <input type="number" step="0.01" value={amountReceived} onChange={e => setAmountReceived(e.target.value)} />
+              <input type="number" value={amountReceived} onChange={e => setAmountReceived(e.target.value)} placeholder="ex: 5000 (sem pontos nem vírgulas)" />
             </div>
           )}
 
