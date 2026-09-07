@@ -24,21 +24,24 @@ export default function CashRegister() {
   const [closingAmount, setClosingAmount] = useState('')
   const [cashSalesTotal, setCashSalesTotal] = useState(0)
   const [error, setError] = useState('')
+  const [duplicateOpenCount, setDuplicateOpenCount] = useState(0)
   const [reportLoadingId, setReportLoadingId] = useState(null)
 
   useEffect(() => { if (company?.id) load() }, [company?.id])
 
   async function load() {
     setLoading(true)
-    const { data: open } = await supabase
+    const { data: openList } = await supabase
       .from('cash_register')
       .select('*')
       .eq('company_id', company.id)
       .eq('status', 'aberto')
       .order('opened_at', { ascending: false })
-      .maybeSingle()
+      .limit(10)
 
-    setCurrent(open || null)
+    const open = openList?.[0] || null
+    setCurrent(open)
+    setDuplicateOpenCount(openList ? openList.length : 0)
 
     if (open) {
       const { data: sales } = await supabase
@@ -239,6 +242,11 @@ export default function CashRegister() {
       </div>
 
       {error && <div className="alert error">{error}</div>}
+      {duplicateOpenCount > 1 && (
+        <div className="alert error">
+          ⚠ Foram encontrados {duplicateOpenCount} caixas abertos em simultâneo nesta loja (só devia haver 1). Isto pode ter causado o "bug" de voltar a pedir para abrir o caixa. Está a ser mostrado o mais recente — os outros precisam de ser fechados manualmente na base de dados. Contacta o suporte técnico para limpar os antigos.
+        </div>
+      )}
 
       {!current ? (
         <div className="card" style={{ padding: 24, maxWidth: 420 }}>

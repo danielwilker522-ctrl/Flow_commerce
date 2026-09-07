@@ -29,14 +29,14 @@ export default function PDV() {
 
   async function init() {
     setChecking(true)
-    const [{ data: prods }, { data: cats }, { data: openRegister }] = await Promise.all([
+    const [{ data: prods }, { data: cats }, { data: openRegisterList }] = await Promise.all([
       supabase.from('products').select('*, categories(name)').eq('company_id', company.id).eq('is_active', true).order('name'),
       supabase.from('categories').select('id, name').eq('company_id', company.id).order('name'),
-      supabase.from('cash_register').select('id').eq('company_id', company.id).eq('status', 'aberto').maybeSingle(),
+      supabase.from('cash_register').select('id').eq('company_id', company.id).eq('status', 'aberto').order('opened_at', { ascending: false }).limit(1),
     ])
     setProducts(prods || [])
     setCategories(cats || [])
-    setHasOpenRegister(!!openRegister)
+    setHasOpenRegister(!!openRegisterList && openRegisterList.length > 0)
     setChecking(false)
     loadTopSellers(prods || [])
   }
