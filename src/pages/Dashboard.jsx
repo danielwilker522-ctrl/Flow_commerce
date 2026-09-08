@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
-import { downloadReceipt } from '../lib/receipt'
+import { downloadReceipt, printReceipt } from '../lib/receipt'
 
 function formatKz(value) {
   return new Intl.NumberFormat('pt-AO', { minimumFractionDigits: 2 }).format(value || 0) + ' Kz'
@@ -62,20 +62,34 @@ export default function Dashboard() {
     setLoading(false)
   }
 
+  async function buildReceiptParams(sale) {
+    const [{ data: items }, { data: cashierProfile }] = await Promise.all([
+      supabase.from('sales_itens').select('quantity, unit_price, products(name)').eq('sales_id', sale.id),
+      sale.profile_id ? supabase.from('profiles').select('full_name').eq('id', sale.profile_id).maybeSingle() : Promise.resolve({ data: null }),
+    ])
+    return {
+      companyName: company?.name,
+      sale,
+      items: (items || []).map(it => ({ name: it.products?.name || 'Produto removido', quantity: it.quantity, unitPrice: it.unit_price })),
+      cashier: cashierProfile?.full_name || '—',
+    }
+  }
+
   async function handleDownloadReceipt(sale) {
     setReceiptLoadingId(sale.id)
     try {
-      const [{ data: items }, { data: cashierProfile }] = await Promise.all([
-        supabase.from('sales_itens').select('quantity, unit_price, products(name)').eq('sales_id', sale.id),
-        sale.profile_id ? supabase.from('profiles').select('full_name').eq('id', sale.profile_id).maybeSingle() : Promise.resolve({ data: null }),
-      ])
+      downloadReceipt(await buildReceiptParams(sale))
+    } catch (err) {
+      alert('Erro ao gerar recibo: ' + err.message)
+    } finally {
+      setReceiptLoadingId(null)
+    }
+  }
 
-      downloadReceipt({
-        companyName: company?.name,
-        sale,
-        items: (items || []).map(it => ({ name: it.products?.name || 'Produto removido', quantity: it.quantity, unitPrice: it.unit_price })),
-        cashier: cashierProfile?.full_name || '—',
-      })
+  async function handlePrintReceipt(sale) {
+    setReceiptLoadingId(sale.id)
+    try {
+      printReceipt(await buildReceiptParams(sale))
     } catch (err) {
       alert('Erro ao gerar recibo: ' + err.message)
     } finally {
@@ -127,7 +141,10 @@ export default function Dashboard() {
                     <td style={{ textTransform: 'capitalize' }}>{s.payment_method || '—'}</td>
                     <td className="mono">{formatKz(s.total)}</td>
                     <td style={{ textAlign: 'right' }}>
-                      <button className="btn-ghost" onClick={() => handleDownloadReceipt(s)} disabled={receiptLoadingId === s.id}>
+                      <button className="btn-ghost" onClick={() => handlePrintReceipt(s)} disabled={receiptLoadingId === s.id} title="Imprimir">
+                        {receiptLoadingId === s.id ? '...' : '🖨'}
+                      </button>
+                      <button className="btn-ghost" onClick={() => handleDownloadReceipt(s)} disabled={receiptLoadingId === s.id} title="Descarregar">
                         {receiptLoadingId === s.id ? '...' : '🧾'}
                       </button>
                     </td>

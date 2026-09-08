@@ -8,7 +8,7 @@ function formatKz(value) {
 }
 
 // items: [{ name, quantity, unitPrice }]
-export function downloadReceipt({ companyName, sale, items, cashier }) {
+function buildReceiptDoc({ companyName, sale, items, cashier }) {
   const doc = new jsPDF({ format: [80, 200], unit: 'mm' })
   let y = 10
 
@@ -51,5 +51,22 @@ export function downloadReceipt({ companyName, sale, items, cashier }) {
   doc.setFontSize(7)
   doc.text('Obrigado pela preferência!', 40, finalY, { align: 'center' })
 
-  doc.save(`recibo-${sale.id.slice(0, 8)}.pdf`)
+  return doc
+}
+
+export function downloadReceipt(params) {
+  const doc = buildReceiptDoc(params)
+  doc.save(`recibo-${params.sale.id.slice(0, 8)}.pdf`)
+}
+
+export function printReceipt(params) {
+  const doc = buildReceiptDoc(params)
+  // Marca o PDF para abrir logo a caixa de impressão do sistema operativo/browser
+  doc.autoPrint()
+  const blobUrl = doc.output('bloburl')
+  const win = window.open(blobUrl, '_blank')
+  if (!win) {
+    // Bloqueador de pop-ups ativo — cai para download normal como alternativa
+    downloadReceipt(params)
+  }
 }

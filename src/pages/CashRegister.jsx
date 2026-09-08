@@ -23,6 +23,7 @@ export default function CashRegister() {
   const [openingAmount, setOpeningAmount] = useState('')
   const [closingAmount, setClosingAmount] = useState('')
   const [cashSalesTotal, setCashSalesTotal] = useState(0)
+  const [salesByMethod, setSalesByMethod] = useState({ dinheiro: 0, multicaixa: 0, transferencia: 0, cartao: 0 })
   const [error, setError] = useState('')
   const [duplicateOpenCount, setDuplicateOpenCount] = useState(0)
   const [reportLoadingId, setReportLoadingId] = useState(null)
@@ -46,13 +47,18 @@ export default function CashRegister() {
     if (open) {
       const { data: sales } = await supabase
         .from('sales')
-        .select('total')
+        .select('total, payment_method')
         .eq('company_id', company.id)
-        .eq('payment_method', 'dinheiro')
         .neq('status', 'cancelled')
         .gte('created_at', open.opened_at)
-      const total = (sales || []).reduce((s, r) => s + Number(r.total || 0), 0)
-      setCashSalesTotal(total)
+
+      const byMethod = { dinheiro: 0, multicaixa: 0, transferencia: 0, cartao: 0 }
+      for (const s of sales || []) {
+        const key = s.payment_method || 'outro'
+        byMethod[key] = (byMethod[key] || 0) + Number(s.total || 0)
+      }
+      setSalesByMethod(byMethod)
+      setCashSalesTotal(byMethod.dinheiro || 0)
     }
 
     const { data: closed } = await supabase
@@ -100,7 +106,7 @@ export default function CashRegister() {
     )
     if (!confirmed) return
     try {
-      const expected = Number(current.opening_amount || 0) + cashSalesTotal
+      const expected = Number(current.opening_amount || 0) + cashSalesTotal + Number(salesByMethod.cartao || 0)
       const { error } = await supabase.from('cash_register').update({
         closing_amount: closing,
         expected_amount: expected,
@@ -277,10 +283,28 @@ export default function CashRegister() {
               <div className="label" style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase' }}>Vendas em dinheiro</div>
               <div className="value" style={{ fontFamily: 'var(--font-mono)', fontSize: 20 }}>{formatKz(cashSalesTotal)}</div>
             </div>
+            <div>
+              <div className="label" style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase' }}>Vendas em cartão</div>
+              <div className="value" style={{ fontFamily: 'var(--font-mono)', fontSize: 20 }}>{formatKz(salesByMethod.cartao)}</div>
+            </div>
           </div>
+
+          <div style={{ marginBottom: 18 }}>
+            <div className="label" style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>
+              Outras vendas (desde a abertura)
+            </div>
+            <div className="cart-totals">
+              <div className="row"><span>Multicaixa</span><span className="mono">{formatKz(salesByMethod.multicaixa)}</span></div>
+              <div className="row"><span>Transferência</span><span className="mono">{formatKz(salesByMethod.transferencia)}</span></div>
+            </div>
+          </div>
+
           <div className="cart-totals" style={{ marginBottom: 18 }}>
-            <div className="row total"><span>Valor esperado</span><span>{formatKz(Number(current.opening_amount || 0) + cashSalesTotal)}</span></div>
+            <div className="row total"><span>Valor esperado</span><span>{formatKz(Number(current.opening_amount || 0) + cashSalesTotal + Number(salesByMethod.cartao || 0))}</span></div>
           </div>
+          <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: -14, marginBottom: 18 }}>
+            O "valor esperado" soma a abertura + vendas em dinheiro + vendas em cartão. Multicaixa e transferência ficam à parte, só para consulta.
+          </p>
           <form onSubmit={handleClose}>
             <div className="field">
               <label>Valor contado no fecho</label>

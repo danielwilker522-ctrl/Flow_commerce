@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
-import { downloadReceipt } from '../lib/receipt'
+import { downloadReceipt, printReceipt } from '../lib/receipt'
 
 function formatKz(value) {
   return new Intl.NumberFormat('pt-AO', { minimumFractionDigits: 2 }).format(value || 0) + ' Kz'
@@ -168,9 +168,14 @@ export default function PDV() {
         <div className="alert success" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <span>{success}</span>
           {lastReceipt && (
-            <button className="btn-secondary" style={{ flexShrink: 0 }} onClick={() => downloadReceipt(lastReceipt)}>
-              🧾 Descarregar recibo
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              <button className="btn-secondary" onClick={() => printReceipt(lastReceipt)}>
+                🖨 Imprimir recibo
+              </button>
+              <button className="btn-secondary" onClick={() => downloadReceipt(lastReceipt)}>
+                🧾 Descarregar recibo
+              </button>
+            </div>
           )}
         </div>
       )}
