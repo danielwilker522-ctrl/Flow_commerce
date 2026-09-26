@@ -167,18 +167,12 @@ export default function Products() {
     if (!qty || qty <= 0) return
     setEntrySubmitting(true)
     try {
-      const before = Number(entryProduct.stock_quantity || 0)
-      const after = before + qty
-
-      const { error } = await supabase.from('products').update({ stock_quantity: after }).eq('id', entryProduct.id)
-      if (error) throw error
-
-      await supabase.from('stock_movements').insert({
-        company_id: company.id, product_id: entryProduct.id, profile_id: profile.id,
-        movement_type: 'entrada', quantity: qty,
-        stock_before: before, stock_after: after,
-        notes: entryNote || 'Entrada manual de stock',
+      const { error } = await supabase.rpc('register_stock_entry', {
+        p_product_id: entryProduct.id,
+        p_quantity: qty,
+        p_note: entryNote || 'Entrada manual de stock',
       })
+      if (error) throw error
 
       setEntryProduct(null)
       setEntryQty('')
