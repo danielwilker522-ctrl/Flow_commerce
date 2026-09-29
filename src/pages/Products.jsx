@@ -168,6 +168,7 @@ export default function Products() {
     setEntrySubmitting(true)
     try {
       const { error } = await supabase.rpc('register_stock_entry', {
+        p_company_id: company.id,
         p_product_id: entryProduct.id,
         p_quantity: qty,
         p_note: entryNote || 'Entrada manual de stock',
