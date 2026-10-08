@@ -10,6 +10,7 @@ import PDV from './pages/PDV'
 import CashRegister from './pages/CashRegister'
 import Products from './pages/Products'
 import Profit from './pages/Profit'
+import Movements from './pages/Movements'
 import Team from './pages/Team'
 import Categories from './pages/Categories'
 import Suppliers from './pages/Suppliers'
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="pdv" element={<PDV />} />
             <Route path="caixa" element={<CashRegister />} />
             <Route path="produtos" element={<Products />} />
+            <Route path="movimentos" element={<Movements />} />
             <Route path="lucro" element={<Profit />} />
             <Route path="equipa" element={<Team />} />
             <Route path="categorias" element={<Categories />} />

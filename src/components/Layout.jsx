@@ -11,6 +11,7 @@ const baseLinks = [
 ]
 
 const adminOnlyLinks = [
+  { to: '/app/movimentos', label: 'Entradas & Saídas' },
   { to: '/app/lucro', label: 'Lucro & Stock' },
   { to: '/app/equipa', label: 'Funcionários' },
 ]
